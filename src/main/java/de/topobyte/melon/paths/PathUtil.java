@@ -20,6 +20,7 @@ package de.topobyte.melon.paths;
 import java.io.IOException;
 import java.nio.file.AccessDeniedException;
 import java.nio.file.DirectoryStream;
+import java.nio.file.FileVisitOption;
 import java.nio.file.FileVisitResult;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -27,6 +28,7 @@ import java.nio.file.Paths;
 import java.nio.file.SimpleFileVisitor;
 import java.nio.file.attribute.BasicFileAttributes;
 import java.util.ArrayList;
+import java.util.EnumSet;
 import java.util.List;
 
 import org.slf4j.Logger;
@@ -69,60 +71,83 @@ public class PathUtil
 	public static List<Path> findRecursive(Path pathData, final String glob)
 			throws IOException
 	{
+		return findRecursive(pathData, glob, Integer.MAX_VALUE, false);
+	}
+
+	public static List<Path> findRecursive(Path pathData, final String glob,
+			boolean followLinks) throws IOException
+	{
+		return findRecursive(pathData, glob, Integer.MAX_VALUE, followLinks);
+	}
+
+	public static List<Path> findRecursive(Path pathData, final String glob,
+			int maxDepth, boolean followLinks) throws IOException
+	{
 		return findRecursive(pathData, glob, AccessDeniedActionOption.SKIP,
-				AccessDeniedLogOption.LOG_DEBUG);
+				AccessDeniedLogOption.LOG_DEBUG, maxDepth, followLinks);
 	}
 
 	public static List<Path> findRecursive(Path pathData, final String glob,
 			final AccessDeniedActionOption accessDeniedActionOption,
-			final AccessDeniedLogOption accessDeniedLogOption)
-			throws IOException
+			final AccessDeniedLogOption accessDeniedLogOption, int maxDepth,
+			boolean followLinks) throws IOException
 	{
 		final List<Path> results = new ArrayList<>();
-		Files.walkFileTree(pathData, new SimpleFileVisitor<Path>() {
 
-			@Override
-			public FileVisitResult preVisitDirectory(Path dir,
-					BasicFileAttributes attrs) throws IOException
-			{
-				try (DirectoryStream<Path> stream = Files
-						.newDirectoryStream(dir, glob)) {
-					addAll(results, stream);
-				}
-				return FileVisitResult.CONTINUE;
-			}
+		EnumSet<FileVisitOption> options = EnumSet
+				.noneOf(FileVisitOption.class);
+		if (followLinks) {
+			options.add(FileVisitOption.FOLLOW_LINKS);
+		}
 
-			@Override
-			public FileVisitResult visitFileFailed(Path file, IOException io)
-					throws IOException
-			{
-				if (io instanceof AccessDeniedException) {
-					switch (accessDeniedLogOption) {
-					case LOG_WARN:
-						logger.warn("access denied: " + io.getMessage());
-						break;
-					case LOG_DEBUG:
-						logger.debug("access denied: " + io.getMessage());
-						break;
-					case LOG_INFO:
-						logger.info("access denied: " + io.getMessage());
-						break;
+		Files.walkFileTree(pathData, options, maxDepth,
+				new SimpleFileVisitor<Path>() {
+
+					@Override
+					public FileVisitResult preVisitDirectory(Path dir,
+							BasicFileAttributes attrs) throws IOException
+					{
+						try (DirectoryStream<Path> stream = Files
+								.newDirectoryStream(dir, glob)) {
+							addAll(results, stream);
+						}
+						return FileVisitResult.CONTINUE;
 					}
-					switch (accessDeniedActionOption) {
-					case SKIP:
-						return FileVisitResult.SKIP_SUBTREE;
-					case TERMINATE:
-						return FileVisitResult.TERMINATE;
-					case FAIL:
-						throw io;
-					}
-				} else {
-					logger.warn(io.getMessage(), io);
-				}
-				return super.visitFileFailed(file, io);
-			}
 
-		});
+					@Override
+					public FileVisitResult visitFileFailed(Path file,
+							IOException io) throws IOException
+					{
+						if (io instanceof AccessDeniedException) {
+							switch (accessDeniedLogOption) {
+							case LOG_WARN:
+								logger.warn(
+										"access denied: " + io.getMessage());
+								break;
+							case LOG_DEBUG:
+								logger.debug(
+										"access denied: " + io.getMessage());
+								break;
+							case LOG_INFO:
+								logger.info(
+										"access denied: " + io.getMessage());
+								break;
+							}
+							switch (accessDeniedActionOption) {
+							case SKIP:
+								return FileVisitResult.SKIP_SUBTREE;
+							case TERMINATE:
+								return FileVisitResult.TERMINATE;
+							case FAIL:
+								throw io;
+							}
+						} else {
+							logger.warn(io.getMessage(), io);
+						}
+						return super.visitFileFailed(file, io);
+					}
+
+				});
 		return results;
 	}
 
