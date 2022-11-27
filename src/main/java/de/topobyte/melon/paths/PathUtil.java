@@ -81,6 +81,13 @@ public class PathUtil
 		return findRecursive(pathData, globs, Integer.MAX_VALUE, false);
 	}
 
+	public static List<Path> findRecursive(Path pathData,
+			final DirectoryStream.Filter<? super Path> filter)
+			throws IOException
+	{
+		return findRecursive(pathData, filter, Integer.MAX_VALUE, false);
+	}
+
 	public static List<Path> findRecursive(Path pathData, final String glob,
 			boolean followLinks) throws IOException
 	{
@@ -92,6 +99,13 @@ public class PathUtil
 			throws IOException
 	{
 		return findRecursive(pathData, globs, Integer.MAX_VALUE, followLinks);
+	}
+
+	public static List<Path> findRecursive(Path pathData,
+			final DirectoryStream.Filter<? super Path> filter,
+			boolean followLinks) throws IOException
+	{
+		return findRecursive(pathData, filter, Integer.MAX_VALUE, followLinks);
 	}
 
 	public static List<Path> findRecursive(Path pathData, final String glob,
@@ -106,6 +120,14 @@ public class PathUtil
 			throws IOException
 	{
 		return findRecursive(pathData, globs, AccessDeniedActionOption.SKIP,
+				AccessDeniedLogOption.LOG_DEBUG, maxDepth, followLinks);
+	}
+
+	public static List<Path> findRecursive(Path pathData,
+			final DirectoryStream.Filter<? super Path> filter, int maxDepth,
+			boolean followLinks) throws IOException
+	{
+		return findRecursive(pathData, filter, AccessDeniedActionOption.SKIP,
 				AccessDeniedLogOption.LOG_DEBUG, maxDepth, followLinks);
 	}
 
@@ -138,6 +160,22 @@ public class PathUtil
 								.newDirectoryStream(dir, glob)) {
 							addAll(results, stream);
 						}
+					}
+				});
+	}
+
+	public static List<Path> findRecursive(Path pathData,
+			final DirectoryStream.Filter<? super Path> filter,
+			final AccessDeniedActionOption accessDeniedActionOption,
+			final AccessDeniedLogOption accessDeniedLogOption, int maxDepth,
+			boolean followLinks) throws IOException
+	{
+		return findRecursive(pathData, accessDeniedActionOption,
+				accessDeniedLogOption, maxDepth, followLinks,
+				(List<Path> results, Path dir) -> {
+					try (DirectoryStream<Path> stream = Files
+							.newDirectoryStream(dir, filter)) {
+						addAll(results, stream);
 					}
 				});
 	}
