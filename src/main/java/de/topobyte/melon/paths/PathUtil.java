@@ -28,6 +28,7 @@ import java.nio.file.Paths;
 import java.nio.file.SimpleFileVisitor;
 import java.nio.file.attribute.BasicFileAttributes;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.EnumSet;
 import java.util.List;
 
@@ -74,10 +75,23 @@ public class PathUtil
 		return findRecursive(pathData, glob, Integer.MAX_VALUE, false);
 	}
 
+	public static List<Path> findRecursive(Path pathData,
+			final Collection<String> globs) throws IOException
+	{
+		return findRecursive(pathData, globs, Integer.MAX_VALUE, false);
+	}
+
 	public static List<Path> findRecursive(Path pathData, final String glob,
 			boolean followLinks) throws IOException
 	{
 		return findRecursive(pathData, glob, Integer.MAX_VALUE, followLinks);
+	}
+
+	public static List<Path> findRecursive(Path pathData,
+			final Collection<String> globs, boolean followLinks)
+			throws IOException
+	{
+		return findRecursive(pathData, globs, Integer.MAX_VALUE, followLinks);
 	}
 
 	public static List<Path> findRecursive(Path pathData, final String glob,
@@ -87,10 +101,57 @@ public class PathUtil
 				AccessDeniedLogOption.LOG_DEBUG, maxDepth, followLinks);
 	}
 
+	public static List<Path> findRecursive(Path pathData,
+			final Collection<String> globs, int maxDepth, boolean followLinks)
+			throws IOException
+	{
+		return findRecursive(pathData, globs, AccessDeniedActionOption.SKIP,
+				AccessDeniedLogOption.LOG_DEBUG, maxDepth, followLinks);
+	}
+
 	public static List<Path> findRecursive(Path pathData, final String glob,
 			final AccessDeniedActionOption accessDeniedActionOption,
 			final AccessDeniedLogOption accessDeniedLogOption, int maxDepth,
 			boolean followLinks) throws IOException
+	{
+		return findRecursive(pathData, accessDeniedActionOption,
+				accessDeniedLogOption, maxDepth, followLinks,
+				(List<Path> results, Path dir) -> {
+					try (DirectoryStream<Path> stream = Files
+							.newDirectoryStream(dir, glob)) {
+						addAll(results, stream);
+					}
+				});
+	}
+
+	public static List<Path> findRecursive(Path pathData,
+			final Collection<String> globs,
+			final AccessDeniedActionOption accessDeniedActionOption,
+			final AccessDeniedLogOption accessDeniedLogOption, int maxDepth,
+			boolean followLinks) throws IOException
+	{
+		return findRecursive(pathData, accessDeniedActionOption,
+				accessDeniedLogOption, maxDepth, followLinks,
+				(List<Path> results, Path dir) -> {
+					for (String glob : globs) {
+						try (DirectoryStream<Path> stream = Files
+								.newDirectoryStream(dir, glob)) {
+							addAll(results, stream);
+						}
+					}
+				});
+	}
+
+	private static interface DirectoryCollector
+	{
+		public void collect(List<Path> results, Path dir) throws IOException;
+	}
+
+	private static List<Path> findRecursive(Path pathData,
+			final AccessDeniedActionOption accessDeniedActionOption,
+			final AccessDeniedLogOption accessDeniedLogOption, int maxDepth,
+			boolean followLinks, DirectoryCollector collector)
+			throws IOException
 	{
 		final List<Path> results = new ArrayList<>();
 
@@ -107,10 +168,7 @@ public class PathUtil
 					public FileVisitResult preVisitDirectory(Path dir,
 							BasicFileAttributes attrs) throws IOException
 					{
-						try (DirectoryStream<Path> stream = Files
-								.newDirectoryStream(dir, glob)) {
-							addAll(results, stream);
-						}
+						collector.collect(results, dir);
 						return FileVisitResult.CONTINUE;
 					}
 

@@ -1,4 +1,4 @@
-// Copyright 2017 Sebastian Kuerten
+// Copyright 2022 Sebastian Kuerten
 //
 // This file is part of melon-paths.
 //
@@ -20,15 +20,17 @@ package de.topobyte.melon.paths;
 import java.io.IOException;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.util.Arrays;
 import java.util.List;
 
-public class Test
+public class TestFindMarkdownAndGradle
 {
 
 	public static void main(String[] args) throws IOException
 	{
-		List<Path> files = PathUtil
-				.findRecursive(Paths.get("/home/z/github/topobyte"), "*.md");
+		List<Path> files = PathUtil.findRecursive(
+				Paths.get("/home/z/github/topobyte"),
+				Arrays.asList("*.md", "*.gradle"));
 		for (Path file : files) {
 			System.out.println(file);
 		}
